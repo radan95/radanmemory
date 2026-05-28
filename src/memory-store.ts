@@ -1,6 +1,6 @@
 import { readFile, writeFile, readdir, mkdir, rename, lstat, access } from 'node:fs/promises';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
+
 import { sanitizeTitle, toFilename, assertContentSize, assertFileSize, assertFileCount, checkSymlink } from './safety.js';
 import { extractLinks } from './wikilink-parser.js';
 import { computeChecksum } from './checksum.js';
