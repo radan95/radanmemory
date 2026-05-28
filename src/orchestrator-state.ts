@@ -1,7 +1,8 @@
-import { mkdir, writeFile, readFile, rename } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, rename, open, unlink } from 'node:fs/promises';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 
 export interface LockEntry {
   agentId: string;
@@ -32,16 +33,26 @@ export class OrchestratorState {
 
   constructor(private memoryDir: string) {
     this.orchDir = join(memoryDir, '.orchestrator');
+    // Intentionally synchronous: directory must exist before any async operations
     if (!existsSync(this.orchDir)) {
       mkdirSync(this.orchDir, { recursive: true });
     }
   }
 
   private async atomicWrite(filename: string, data: string) {
-    const tmp = join(this.orchDir, `.${filename}.tmp`);
+    const tmp = join(this.orchDir, `.${filename}.${randomUUID()}.tmp`);
     const dest = join(this.orchDir, filename);
     await writeFile(tmp, data, 'utf-8');
-    await rename(tmp, dest);
+    try {
+      await rename(tmp, dest);
+    } catch {
+      try {
+        await unlink(tmp);
+      } catch {
+        // ignore cleanup failure
+      }
+      throw new Error(`Failed to write ${filename}`);
+    }
   }
 
   saveLocks(locks: Record<string, LockEntry>) {
@@ -52,7 +63,10 @@ export class OrchestratorState {
     try {
       const raw = await readFile(join(this.orchDir, 'locks.json'), 'utf-8');
       return JSON.parse(raw);
-    } catch {
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        return {};
+      }
       return {};
     }
   }
@@ -65,7 +79,10 @@ export class OrchestratorState {
     try {
       const raw = await readFile(join(this.orchDir, 'tasks.json'), 'utf-8');
       return JSON.parse(raw);
-    } catch {
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        return [];
+      }
       return [];
     }
   }
@@ -73,13 +90,12 @@ export class OrchestratorState {
   async appendEvent(event: EventEntry) {
     const line = JSON.stringify(event) + '\n';
     const dest = join(this.orchDir, 'events.jsonl');
-    let existing = '';
+    const fd = await open(dest, 'a');
     try {
-      existing = await readFile(dest, 'utf-8');
-    } catch {
-      // File doesn't exist yet, start with empty string
+      await fd.write(line);
+    } finally {
+      await fd.close();
     }
-    await this.atomicWrite('events.jsonl', existing + line);
   }
 
   async loadEvents(limit: number): Promise<EventEntry[]> {
@@ -87,12 +103,15 @@ export class OrchestratorState {
       const raw = await readFile(join(this.orchDir, 'events.jsonl'), 'utf-8');
       const lines = raw.trim().split('\n').filter(Boolean);
       return lines.slice(-limit).map((l) => JSON.parse(l));
-    } catch {
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        return [];
+      }
       return [];
     }
   }
 
-  async saveAgents(agents: Record<string, { name: string; connectedAt: string; lastSeen: string }>) {
+  saveAgents(agents: Record<string, { name: string; connectedAt: string; lastSeen: string }>) {
     return this.atomicWrite('agents.json', JSON.stringify(agents, null, 2));
   }
 
@@ -100,7 +119,10 @@ export class OrchestratorState {
     try {
       const raw = await readFile(join(this.orchDir, 'agents.json'), 'utf-8');
       return JSON.parse(raw);
-    } catch {
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        return {};
+      }
       return {};
     }
   }
