@@ -7,3 +7,10 @@ coverage/
 .idea/
 .DS_Store
 *.log
+
+# Local test data
+.radanmemory/
+
+# Screenshots (macOS/iOS)
+Slika zaslona*
+Screenshot*
