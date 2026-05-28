@@ -1,0 +1,44 @@
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { access, mkdir } from 'node:fs/promises';
+
+const FOLDER_NAME = '.radanmemory';
+
+export async function discoverMemoryDir(cwd?: string): Promise<string | null> {
+  const start = cwd ?? process.cwd();
+  let dir = resolve(start);
+
+  while (true) {
+    const candidate = join(dir, FOLDER_NAME);
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      const parent = resolve(dir, '..');
+      if (parent === dir) return null;
+      dir = parent;
+    }
+  }
+}
+
+export async function discoverOrCreateMemoryDir(cwd?: string): Promise<string> {
+  const found = await discoverMemoryDir(cwd);
+  if (found) return found;
+
+  const start = (cwd ?? process.cwd());
+  const path = join(start, FOLDER_NAME);
+  await mkdir(path, { recursive: true });
+  return path;
+}
+
+export async function ensureIndexFile(dir: string): Promise<void> {
+  const indexPath = join(dir, '_index.md');
+  if (!existsSync(indexPath)) {
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(
+      indexPath,
+      '# RadanMemory Index\n\nWelcome to your local knowledge graph.\n\n',
+      'utf-8',
+    );
+  }
+}
