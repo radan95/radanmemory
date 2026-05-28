@@ -24,16 +24,16 @@ export function assertNoPathTraversal(input: string): void {
 }
 
 export async function assertFileSize(filepath: string): Promise<void> {
-  const { size } = await stat(filepath);
+  const { size } = await lstat(filepath);
   if (size > MAX_FILE_SIZE) {
     throw new Error(`File exceeds max size (1MB): ${filepath}`);
   }
 }
 
 export async function assertFileCount(dir: string): Promise<void> {
-  const entries = await readdir(dir);
-  const mdFiles = entries.filter((e) => e.endsWith('.md'));
-  if (mdFiles.length >= MAX_FILES) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const mdFiles = entries.filter((e) => e.isFile() && e.name.endsWith('.md'));
+  if (mdFiles.length > MAX_FILES) {
     throw new Error(`Max ${MAX_FILES} memories allowed`);
   }
 }
