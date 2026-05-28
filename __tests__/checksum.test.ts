@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { computeChecksum } from '../src/checksum.js';
 
 describe('computeChecksum', () => {
-  it('computes sha256 of content without frontmatter', () => {
+  it('strips frontmatter before computing checksum', () => {
     const raw = '---\ntitle: Test\n---\n\nHello world';
     const result = computeChecksum(raw);
     expect(result).toMatch(/^sha256:[a-f0-9]{64}$/);
@@ -24,5 +24,22 @@ describe('computeChecksum', () => {
     const raw1 = '---\n---\n\nContent A';
     const raw2 = '---\n---\n\nContent B';
     expect(computeChecksum(raw1)).not.toBe(computeChecksum(raw2));
+  });
+
+  it('handles empty string', () => {
+    const result = computeChecksum('');
+    expect(result).toMatch(/^sha256:[a-f0-9]{64}$/);
+  });
+
+  it('treats --- without closing delimiter as plain content', () => {
+    const raw = '---not-frontmatter';
+    const result = computeChecksum(raw);
+    expect(result).toMatch(/^sha256:[a-f0-9]{64}$/);
+  });
+
+  it('handles frontmatter-only files with no body', () => {
+    const raw = '---\ntitle: Test\n---';
+    const result = computeChecksum(raw);
+    expect(result).toBe(computeChecksum(''));
   });
 });

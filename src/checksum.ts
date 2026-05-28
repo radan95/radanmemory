@@ -5,7 +5,7 @@ export function computeChecksum(raw: string): string {
   if (raw.startsWith('---')) {
     const endIdx = raw.indexOf('---', 3);
     if (endIdx !== -1) {
-      content = raw.slice(endIdx + 3).trimStart();
+      content = raw.slice(endIdx + 3).trim();
     }
   }
   const hash = createHash('sha256').update(content, 'utf-8').digest('hex');
