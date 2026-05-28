@@ -5,10 +5,11 @@ export interface AcquireResult { success: boolean; expiresAt?: string; }
 export class LockManager {
   private state: OrchestratorState;
   private locks = new Map<string, LockEntry>();
+  private loaded: Promise<void>;
 
   constructor(memoryDir: string) {
     this.state = new OrchestratorState(memoryDir);
-    this.load();
+    this.loaded = this.load();
   }
 
   private async load() {
@@ -25,6 +26,7 @@ export class LockManager {
   }
 
   async acquire(title: string, agentId: string, ttlSeconds: number): Promise<AcquireResult> {
+    await this.loaded;
     this.cleanup();
     const existing = this.locks.get(title);
     if (existing && existing.agentId !== agentId) return { success: false };
@@ -35,6 +37,7 @@ export class LockManager {
   }
 
   async release(title: string, agentId: string): Promise<boolean> {
+    await this.loaded;
     const existing = this.locks.get(title);
     if (!existing || existing.agentId !== agentId) return false;
     this.locks.delete(title);
@@ -42,7 +45,11 @@ export class LockManager {
     return true;
   }
 
-  get(title: string): LockEntry | undefined { this.cleanup(); return this.locks.get(title); }
+  async get(title: string): Promise<LockEntry | undefined> {
+    await this.loaded;
+    this.cleanup();
+    return this.locks.get(title);
+  }
 
   private cleanup() {
     const now = Date.now();

@@ -21,8 +21,7 @@ describe('EventBus', () => {
   it('publishes to a wildcard subscriber', async () => {
     const events: any[] = [];
     bus.subscribe('*', (event) => events.push(event));
-    bus.publish({ type: 'test', payload: { msg: 'hello' }, timestamp: new Date().toISOString() });
-    await new Promise((r) => setTimeout(r, 50));
+    await bus.publish({ type: 'test', payload: { msg: 'hello' }, timestamp: new Date().toISOString() });
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe('test');
   });
@@ -32,10 +31,9 @@ describe('EventBus', () => {
     const taskEvents: any[] = [];
     bus.subscribe('memory:*', (event) => memoryEvents.push(event));
     bus.subscribe('task:*', (event) => taskEvents.push(event));
-    bus.publish({ type: 'memory:updated', payload: {}, timestamp: new Date().toISOString() });
-    bus.publish({ type: 'task:created', payload: {}, timestamp: new Date().toISOString() });
-    bus.publish({ type: 'agent:connected', payload: {}, timestamp: new Date().toISOString() });
-    await new Promise((r) => setTimeout(r, 50));
+    await bus.publish({ type: 'memory:updated', payload: {}, timestamp: new Date().toISOString() });
+    await bus.publish({ type: 'task:created', payload: {}, timestamp: new Date().toISOString() });
+    await bus.publish({ type: 'agent:connected', payload: {}, timestamp: new Date().toISOString() });
     expect(memoryEvents).toHaveLength(1);
     expect(memoryEvents[0].type).toBe('memory:updated');
     expect(taskEvents).toHaveLength(1);
@@ -45,24 +43,18 @@ describe('EventBus', () => {
   it('filters events by exact type', async () => {
     const exactEvents: any[] = [];
     bus.subscribe('task:created', (event) => exactEvents.push(event));
-    bus.publish({ type: 'task:created', payload: {}, timestamp: new Date().toISOString() });
-    bus.publish({ type: 'task:updated', payload: {}, timestamp: new Date().toISOString() });
-    await new Promise((r) => setTimeout(r, 50));
+    await bus.publish({ type: 'task:created', payload: {}, timestamp: new Date().toISOString() });
+    await bus.publish({ type: 'task:updated', payload: {}, timestamp: new Date().toISOString() });
     expect(exactEvents).toHaveLength(1);
     expect(exactEvents[0].type).toBe('task:created');
   });
 
   it('persists events and returns history', async () => {
-    bus.publish({ type: 'a', payload: {}, timestamp: '2024-01-01T00:00:00Z' });
-    bus.publish({ type: 'b', payload: {}, timestamp: '2024-01-01T00:00:01Z' });
-    bus.publish({ type: 'c', payload: {}, timestamp: '2024-01-01T00:00:02Z' });
+    await bus.publish({ type: 'a', payload: {}, timestamp: '2024-01-01T00:00:00Z' });
+    await bus.publish({ type: 'b', payload: {}, timestamp: '2024-01-01T00:00:01Z' });
+    await bus.publish({ type: 'c', payload: {}, timestamp: '2024-01-01T00:00:02Z' });
 
-    let history: any[] = [];
-    for (let i = 0; i < 50; i++) {
-      await new Promise((r) => setTimeout(r, 20));
-      history = await bus.getHistory(10);
-      if (history.length === 3) break;
-    }
+    const history = await bus.getHistory(10);
 
     expect(history).toHaveLength(3);
     expect(history[1].type).toBe('b');
@@ -72,12 +64,10 @@ describe('EventBus', () => {
   it('allows unsubscribing', async () => {
     const events: any[] = [];
     const unsubscribe = bus.subscribe('*', (event) => events.push(event));
-    bus.publish({ type: 'first', payload: {}, timestamp: new Date().toISOString() });
-    await new Promise((r) => setTimeout(r, 50));
+    await bus.publish({ type: 'first', payload: {}, timestamp: new Date().toISOString() });
     expect(events).toHaveLength(1);
     unsubscribe();
-    bus.publish({ type: 'second', payload: {}, timestamp: new Date().toISOString() });
-    await new Promise((r) => setTimeout(r, 50));
+    await bus.publish({ type: 'second', payload: {}, timestamp: new Date().toISOString() });
     expect(events).toHaveLength(1);
   });
 
@@ -85,8 +75,14 @@ describe('EventBus', () => {
     bus.subscribe('*', () => {
       throw new Error('boom');
     });
-    expect(() =>
-      bus.publish({ type: 'test', payload: {}, timestamp: new Date().toISOString() })
-    ).not.toThrow();
+    await expect(bus.publish({ type: 'test', payload: {}, timestamp: new Date().toISOString() })).resolves.not.toThrow();
+  });
+
+  it('persists events across instances', async () => {
+    await bus.publish({ type: 'test', payload: {}, timestamp: '2024-01-01T00:00:00Z' });
+    const bus2 = new EventBus(tmpDir);
+    const history = await bus2.getHistory(10);
+    expect(history).toHaveLength(1);
+    expect(history[0].type).toBe('test');
   });
 });

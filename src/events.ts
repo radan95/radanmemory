@@ -16,8 +16,8 @@ export class EventBus {
     return () => this.handlers.get(pattern)?.delete(handler);
   }
 
-  publish(event: EventEntry) {
-    this.state.appendEvent(event);
+  async publish(event: EventEntry): Promise<void> {
+    await this.state.appendEvent(event);
     for (const [pattern, handlers] of this.handlers) {
       if (this.match(pattern, event.type)) {
         for (const handler of handlers) {

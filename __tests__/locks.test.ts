@@ -25,7 +25,7 @@ describe('LockManager', () => {
 
   it('gets an acquired lock', async () => {
     await locks.acquire('file.txt', 'agent-1', 300);
-    const entry = locks.get('file.txt');
+    const entry = await locks.get('file.txt');
     expect(entry).toBeDefined();
     expect(entry!.agentId).toBe('agent-1');
   });
@@ -41,7 +41,7 @@ describe('LockManager', () => {
     const result = await locks.acquire('file.txt', 'agent-1', 600);
     expect(result.success).toBe(true);
     expect(result.expiresAt).toBeDefined();
-    const entry = locks.get('file.txt');
+    const entry = await locks.get('file.txt');
     expect(entry!.ttl).toBe(600);
   });
 
@@ -49,14 +49,14 @@ describe('LockManager', () => {
     await locks.acquire('file.txt', 'agent-1', 300);
     const released = await locks.release('file.txt', 'agent-1');
     expect(released).toBe(true);
-    expect(locks.get('file.txt')).toBeUndefined();
+    expect(await locks.get('file.txt')).toBeUndefined();
   });
 
   it('prevents release by a wrong agent', async () => {
     await locks.acquire('file.txt', 'agent-1', 300);
     const released = await locks.release('file.txt', 'agent-2');
     expect(released).toBe(false);
-    expect(locks.get('file.txt')).toBeDefined();
+    expect(await locks.get('file.txt')).toBeDefined();
   });
 
   it('allows another agent to acquire after TTL expiry', async () => {
@@ -64,12 +64,20 @@ describe('LockManager', () => {
     await new Promise((r) => setTimeout(r, 50));
     const result = await locks.acquire('file.txt', 'agent-2', 300);
     expect(result.success).toBe(true);
-    expect(locks.get('file.txt')!.agentId).toBe('agent-2');
+    expect((await locks.get('file.txt'))!.agentId).toBe('agent-2');
   });
 
   it('returns undefined for expired locks', async () => {
     await locks.acquire('file.txt', 'agent-1', 0.01);
     await new Promise((r) => setTimeout(r, 50));
-    expect(locks.get('file.txt')).toBeUndefined();
+    expect(await locks.get('file.txt')).toBeUndefined();
+  });
+
+  it('persists locks across instances', async () => {
+    await locks.acquire('file.txt', 'agent-1', 300);
+    const locks2 = new LockManager(tmpDir);
+    const entry = await locks2.get('file.txt');
+    expect(entry).toBeDefined();
+    expect(entry!.agentId).toBe('agent-1');
   });
 });

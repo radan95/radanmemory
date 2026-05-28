@@ -4,10 +4,11 @@ import { OrchestratorState, type TaskEntry } from './orchestrator-state.js';
 export class TaskQueue {
   private tasks: TaskEntry[] = [];
   private state: OrchestratorState;
+  private loaded: Promise<void>;
 
   constructor(memoryDir: string, private timeoutSeconds: number = 1800) {
     this.state = new OrchestratorState(memoryDir);
-    this.load();
+    this.loaded = this.load();
   }
 
   private async load() {
@@ -20,56 +21,65 @@ export class TaskQueue {
   }
   private async persist() { await this.state.saveTasks(this.tasks); }
 
-  create(title: string, description: string, tags?: string[]): TaskEntry {
+  async create(title: string, description: string, tags?: string[]): Promise<TaskEntry> {
+    await this.loaded;
     const task: TaskEntry = {
       id: randomUUID(), title, description, status: 'pending', tags: tags ?? [],
       createdAt: new Date().toISOString(),
     };
     this.tasks.push(task);
-    this.persist();
+    await this.persist();
     return task;
   }
 
-  get(id: string): TaskEntry | undefined { return this.tasks.find(t => t.id === id); }
+  async get(id: string): Promise<TaskEntry | undefined> {
+    await this.loaded;
+    return this.tasks.find(t => t.id === id);
+  }
 
-  claim(id: string, agentId: string): boolean {
-    this.cleanup();
+  async claim(id: string, agentId: string): Promise<boolean> {
+    await this.loaded;
+    await this.cleanup();
     const task = this.tasks.find(t => t.id === id);
     if (!task || task.status !== 'pending') return false;
     task.status = 'active'; task.assignee = agentId; task.claimedAt = new Date().toISOString();
-    this.persist();
+    await this.persist();
     return true;
   }
 
-  complete(id: string, agentId: string): boolean {
+  async complete(id: string, agentId: string): Promise<boolean> {
+    await this.loaded;
     const task = this.tasks.find(t => t.id === id);
     if (!task || task.status !== 'active' || task.assignee !== agentId) return false;
     task.status = 'completed'; task.completedAt = new Date().toISOString();
-    this.persist();
+    await this.persist();
     return true;
   }
 
-  fail(id: string, agentId: string, reason: string): boolean {
+  async fail(id: string, agentId: string, reason: string): Promise<boolean> {
+    await this.loaded;
     const task = this.tasks.find(t => t.id === id);
     if (!task || task.status !== 'active' || task.assignee !== agentId) return false;
     task.status = 'failed'; task.failedReason = reason; task.completedAt = new Date().toISOString();
-    this.persist();
+    await this.persist();
     return true;
   }
 
-  list(status?: 'pending' | 'active' | 'completed' | 'failed'): TaskEntry[] {
-    this.cleanup();
+  async list(status?: 'pending' | 'active' | 'completed' | 'failed'): Promise<TaskEntry[]> {
+    await this.loaded;
+    await this.cleanup();
     if (status) return this.tasks.filter(t => t.status === status);
     return [...this.tasks];
   }
 
-  cleanup() {
+  async cleanup() {
+    await this.loaded;
     const cutoff = new Date(Date.now() - this.timeoutSeconds * 1000).toISOString();
     for (const task of this.tasks) {
       if (task.status === 'active' && task.claimedAt && task.claimedAt < cutoff) {
         task.status = 'pending'; task.assignee = undefined; task.claimedAt = undefined;
       }
     }
-    this.persist();
+    await this.persist();
   }
 }
