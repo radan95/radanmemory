@@ -109,6 +109,79 @@ export RADANMIND_API_KEY=rm_live_xxx
 radanmemory sync
 ```
 
+## Multi-Agent Orchestrator Mode
+
+RadanMemory supports running as an HTTP server for multi-agent collaboration via SSE transport.
+
+### Starting HTTP Mode
+
+```bash
+# Start HTTP server for multi-agent mode
+radanmemory server --http --port 3000
+```
+
+The server exposes:
+- `GET /sse` — SSE endpoint for MCP connections
+- `POST /messages?sessionId=<id>` — Message endpoint
+- `GET /health` — Health check
+
+### Connecting Agents via HTTP
+
+**Claude Code / Codex MCP Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "radanmemory": {
+      "type": "http",
+      "url": "http://127.0.0.1:3000/sse"
+    }
+  }
+}
+```
+
+Multiple agents can connect to the same HTTP server and collaborate on shared memory.
+
+### Orchestrator Tools (HTTP Mode Only)
+
+When running in HTTP mode, the following additional tools are available:
+
+- `workspace_create_task(title, description, tags?)` — Create a task in the shared queue
+- `claim_task(taskId)` — Claim a task for the current agent
+- `complete_task(taskId)` — Mark a claimed task as completed
+- `fail_task(taskId, reason)` — Mark a claimed task as failed
+- `workspace_list_tasks(status?, limit?)` — List tasks in the queue
+- `acquire_lock(title, ttl?)` — Acquire a pessimistic lock (default TTL: 300s)
+- `release_lock(title)` — Release a lock
+- `get_activity_feed(limit?)` — Get recent activity events
+
+### Optimistic Locking
+
+To prevent lost updates when multiple agents edit the same memory, use `expected_checksum`:
+
+1. Read the memory: `read_memory(title)` → returns `checksum`
+2. Update with checksum: `update_memory(title, content, expected_checksum="sha256:...")`
+3. If the memory changed since reading, the update is rejected with a conflict error
+
+This ensures safe concurrent editing without blocking readers.
+
+### Task Queue Lifecycle
+
+```
+pending → claim_task → active → complete_task → completed
+                              → fail_task → failed
+```
+
+Tasks automatically expire if claimed but not completed within 30 minutes, returning to `pending` state.
+
+### Activity Feed
+
+The `get_activity_feed` tool returns recent events including:
+- `memory:created`, `memory:updated`, `memory:deleted`
+- `task:created`, `task:claimed`, `task:completed`, `task:failed`
+
+Use this to stay aware of what other agents are doing.
+
 ## License
 
 MIT
