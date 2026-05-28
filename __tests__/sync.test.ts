@@ -30,7 +30,7 @@ describe('SyncClient', () => {
     await expect(client.push(mockStore)).rejects.toThrow('Invalid Request');
   });
 
-  it('parses accepted count from response', async () => {
+  it('parses created+updated count from sync response', async () => {
     const client = new SyncClient('test-key');
     const mockStore = {
       list: vi.fn().mockResolvedValue([{ title: 'test' }]),
@@ -38,15 +38,17 @@ describe('SyncClient', () => {
         title: 'test',
         content: 'content',
         tags: [],
+        links: [],
         updated: new Date().toISOString(),
       }),
+      checksum: vi.fn().mockResolvedValue('abc123'),
     } as unknown as import('../src/memory-store.js').MemoryStore;
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({
         jsonrpc: '2.0',
-        result: { accepted: 1 },
+        result: { created: 1, updated: 0, unchanged: 0, total: 1 },
         id: 1,
       }),
     });
@@ -100,7 +102,7 @@ describe('SyncClient', () => {
         ok: true,
         json: () => Promise.resolve({
           jsonrpc: '2.0',
-          result: { accepted: 1 },
+          result: { created: 1, updated: 0, unchanged: 0, total: 1 },
           id: 1,
         }),
       });

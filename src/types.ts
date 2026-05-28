@@ -16,6 +16,7 @@ export interface SyncMemory {
   title: string;
   content: string;
   tags: string[];
+  links: string[];
   checksum: string;
   updated: string;
 }

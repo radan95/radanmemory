@@ -18,7 +18,14 @@ function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> 
 
 interface JsonRpcResponse {
   jsonrpc: string;
-  result?: { accepted?: number; items?: Array<{ title: string; content: string; tags: string[] }> };
+  result?: { 
+    accepted?: number; 
+    items?: Array<{ title: string; content: string; tags: string[] }>;
+    created?: number;
+    updated?: number;
+    unchanged?: number;
+    total?: number;
+  };
   error?: { code: number; message: string };
   id: number;
 }
@@ -77,8 +84,10 @@ export class SyncClient {
       throw new Error(`Sync push failed: ${data.error.code} ${data.error.message}`);
     }
 
-    const accepted = data.result?.accepted ?? payload.memories.length;
-    return { pushed: accepted, pulled: 0, conflicts: [] };
+    const created = data.result?.created ?? 0;
+    const updated = data.result?.updated ?? 0;
+    const pushed = created + updated;
+    return { pushed, pulled: 0, conflicts: [] };
   }
 
   async pull(store: MemoryStore): Promise<SyncResult> {
@@ -90,8 +99,11 @@ export class SyncClient {
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
-        method: 'list_cloud_memories',
-        params: {},
+        method: 'tools/call',
+        params: {
+          name: 'list_memories',
+          arguments: { limit: 1000 }
+        },
         id: 1,
       }),
     });
@@ -105,15 +117,16 @@ export class SyncClient {
       throw new Error(`Sync pull failed: ${data.error.code} ${data.error.message}`);
     }
 
-    const cloudMemories = data.result?.items ?? [];
+    const responseData = data.result as { total?: number; items?: Array<{ title: string; content?: string; tags?: string[] }> } | undefined;
+    const cloudMemories = responseData?.items ?? [];
     let pulled = 0;
     const conflicts: string[] = [];
 
     for (const cm of cloudMemories) {
       const exists = await store.exists(cm.title);
-      if (!exists) {
+      if (!exists && cm.content) {
         try {
-          await store.create(cm.title, cm.content, cm.tags);
+          await store.create(cm.title, cm.content, cm.tags || []);
           pulled++;
         } catch (err) {
           conflicts.push(cm.title);
