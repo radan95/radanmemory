@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { SyncPayload, SyncResult } from './types.js';
 import { MemoryStore } from './memory-store.js';
 
@@ -15,10 +14,6 @@ function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
   return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
-}
-
-function contentChecksum(content: string): string {
-  return createHash('sha256').update(content, 'utf-8').digest('hex');
 }
 
 interface JsonRpcResponse {
@@ -46,7 +41,8 @@ export class SyncClient {
           title: mem.title,
           content: mem.content,
           tags: mem.tags,
-          checksum: contentChecksum(mem.content),
+          links: mem.links,
+          checksum: await store.checksum(meta.title),
           updated: mem.updated,
         });
       } catch {
@@ -63,8 +59,11 @@ export class SyncClient {
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
-        method: 'sync_memories',
-        params: { memories: payload.memories },
+        method: 'tools/call',
+        params: {
+          name: 'sync_memories',
+          arguments: { memories: payload.memories }
+        },
         id: 1,
       }),
     });
