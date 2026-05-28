@@ -28,7 +28,7 @@ import { getAgentTool } from './get-agent.js';
 import { updateAgentTool } from './update-agent.js';
 import { deleteAgentTool } from './delete-agent.js';
 
-export function registerAllTools(store: MemoryStore, memoryDir: string): ToolDefinition[] {
+export function registerAllTools(store: MemoryStore, memoryDir: string, options?: { orchestrator?: boolean }): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     createMemoryTool(store),
     readMemoryTool(store, memoryDir),
