@@ -71,12 +71,12 @@ Postojeći alati, bez promena:
 | `suggest_connections` | Lokalno |
 
 ### 2. Project Tools (Cloud Proxy)
-Novi alati koji prosleđuju ka RadanMind:
 
 | Alat | RadanMind Tool | Params |
 |------|---------------|--------|
 | `create_project` | `create_project` | name, description? |
 | `list_projects` | `list_projects` | limit? |
+| `search_projects` | `search_projects` | query |
 | `update_project` | `update_project` | id, name?, description? |
 | `delete_project` | `delete_project` | id |
 
@@ -89,6 +89,7 @@ Novi alati koji prosleđuju ka RadanMind:
 | `get_task` | `get_task` | id |
 | `update_task` | `update_task` | id, instructions?, status? |
 | `delete_task` | `delete_task` | id |
+| `search_tasks` | `search_tasks` | query, project_id?, status? |
 
 ### 4. Agent Tools (Cloud Proxy)
 
@@ -105,6 +106,32 @@ Novi alati koji prosleđuju ka RadanMind:
 | Alat | Šta radi |
 |------|---------|
 | `sync_memories` | Push lokalnih memories ka RadanMind (ako/support) |
+
+## Local Cache
+
+Novi modul: `src/cloud-cache.ts`
+
+Kako bi se smanjio broj poziva ka cloud-u i poboljšao response time, RadanMemory će lokalno keširati project/task/agent podatke.
+
+```typescript
+interface CloudCache {
+  // Keš se čuva u JSON fajlovima unutar .radanmemory/.cache/
+  // Automatski se invalidate nakon 5 minuta ili na explicitni sync
+  
+  async getProjects(): Promise<Project[] | null>;
+  async setProjects(projects: Project[]): Promise<void>;
+  async getTasks(projectId?: string): Promise<Task[] | null>;
+  async setTasks(tasks: Task[], projectId?: string): Promise<void>;
+  async getAgents(projectId?: string): Promise<Agent[] | null>;
+  async setAgents(agents: Agent[], projectId?: string): Promise<void>;
+  async invalidate(): Promise<void>;
+}
+```
+
+**Cache policy:**
+- Write-through: svaki create/update/delete invalidira keš
+- TTL: 5 minuta za read-only operacije (list, get)
+- Storage: `.radanmemory/.cache/` folder
 
 ## RadanMind Proxy Client
 
@@ -175,19 +202,22 @@ Ako nema `RADANMIND_API_KEY`:
 
 ## Implementation Phases
 
-### Phase 1: RadanMindProxy client
+### Phase 1: RadanMindProxy client + Cache
 - `src/radanmind-proxy.ts` — generic JSON-RPC HTTP client
+- `src/cloud-cache.ts` — local JSON file cache
 - Testovi sa mock serverom
 
 ### Phase 2: Project tools
 - `src/tools/create-project.ts`
 - `src/tools/list-projects.ts`
+- `src/tools/search-projects.ts`
 - `src/tools/update-project.ts`
 - `src/tools/delete-project.ts`
 
 ### Phase 3: Task tools
 - `src/tools/create-task.ts`
 - `src/tools/list-tasks.ts`
+- `src/tools/search-tasks.ts`
 - `src/tools/get-task.ts`
 - `src/tools/update-task.ts`
 - `src/tools/delete-task.ts`
@@ -199,15 +229,10 @@ Ako nema `RADANMIND_API_KEY`:
 - `src/tools/update-agent.ts`
 - `src/tools/delete-agent.ts`
 
-### Phase 5: Sync (optional)
+### Phase 5: Sync + README update
 - Proširiti `sync_memories` da šalje i project/task/agent stanje
-
-## Open Questions
-
-1. Da li RadanMind ima i `search` alate (npr. `search_tasks`)? U trenutnom kodu ne vidim.
-2. Da li želiš da RadanMind dobije i memory alate (da RadanMemory samo prosleđuje)?
-3. Da li treba lokalni cache za project/task/agent podatke?
+- Ažurirati README sa novim alatima
 
 ## Decision
 
-Implementirati fazno, počevši od Phase 1 (RadanMindProxy client).
+Implementirati fazno, počevši od Phase 1 (RadanMindProxy client + Cache).
