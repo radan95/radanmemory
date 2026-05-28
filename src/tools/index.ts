@@ -5,7 +5,6 @@ import { CloudCache } from '../cloud-cache.js';
 import { LockManager } from '../locks.js';
 import { TaskQueue } from '../tasks.js';
 import { EventBus } from '../events.js';
-import { SessionManager } from '../session.js';
 import { createMemoryTool } from './create-memory.js';
 import { readMemoryTool } from './read-memory.js';
 import { updateMemoryTool } from './update-memory.js';
@@ -81,7 +80,7 @@ export function registerAllTools(store: MemoryStore, memoryDir: string, options?
     const locks = new LockManager(memoryDir);
     const tasks = new TaskQueue(memoryDir);
     const events = new EventBus(memoryDir);
-    const sessions = new SessionManager();
+
     tools.push(
       createTaskTool(tasks),
       claimTaskTool(tasks),

@@ -2,7 +2,7 @@ import type { ToolDefinition } from './types.js';
 import { TaskQueue } from '../tasks.js';
 
 export const createTaskTool = (_queue: TaskQueue): ToolDefinition => ({
-  name: 'create_task',
+  name: 'workspace_create_task',
   description: 'Create a new orchestrator task',
   inputSchema: {
     type: 'object',
