@@ -16,7 +16,7 @@ interface JsonRpcRequest {
 }
 
 interface JsonRpcResponse {
-  jsonrpc: string;
+  jsonrpc: '2.0';
   result?: unknown;
   error?: { code: number; message: string };
   id: number;
@@ -42,8 +42,9 @@ export class RadanMindProxy {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeout);
 
+    let response: Response;
     try {
-      const response = await fetch(this.endpoint, {
+      response = await fetch(this.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -52,20 +53,25 @@ export class RadanMindProxy {
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-
-      if (!response.ok) {
-        throw new Error(`RadanMind error: ${response.status} ${response.statusText}`);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Request timed out after ${this.timeout}ms`);
       }
-
-      const data = (await response.json()) as JsonRpcResponse;
-      if (data.error) {
-        throw new Error(`RadanMind error: ${data.error.code} ${data.error.message}`);
-      }
-
-      return data.result as T;
+      throw new Error(`RadanMind network error: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       clearTimeout(timer);
     }
+
+    if (!response.ok) {
+      throw new Error(`RadanMind error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = (await response.json()) as JsonRpcResponse;
+    if (data.error) {
+      throw new Error(`RadanMind error: ${data.error.code} ${data.error.message}`);
+    }
+
+    return data.result as T;
   }
 
   // Convenience wrappers

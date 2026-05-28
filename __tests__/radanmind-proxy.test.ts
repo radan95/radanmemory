@@ -74,4 +74,22 @@ describe('RadanMindProxy', () => {
 
     await expect(proxy.call('tools/call', {})).rejects.toThrow('Forbidden');
   });
+
+  it('throws descriptive error on network failure', async () => {
+    const proxy = new RadanMindProxy({ endpoint: mockEndpoint, apiKey: mockApiKey });
+    
+    vi.mocked(global.fetch).mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await expect(proxy.call('tools/call', {})).rejects.toThrow('RadanMind network error: Failed to fetch');
+  });
+
+  it('throws descriptive timeout error on AbortError', async () => {
+    const proxy = new RadanMindProxy({ endpoint: mockEndpoint, apiKey: mockApiKey, timeout: 5000 });
+    
+    const abortError = new Error('The operation was aborted');
+    abortError.name = 'AbortError';
+    vi.mocked(global.fetch).mockRejectedValue(abortError);
+
+    await expect(proxy.call('tools/call', {})).rejects.toThrow('Request timed out after 5000ms');
+  });
 });
