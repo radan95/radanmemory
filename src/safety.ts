@@ -1,4 +1,4 @@
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, stat, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const VALID_TITLE_RE = /^[a-z0-9-_]+$/i;
@@ -32,15 +32,14 @@ export async function assertFileSize(filepath: string): Promise<void> {
 
 export async function assertFileCount(dir: string): Promise<void> {
   const entries = await readdir(dir);
-  const mdFiles = entries.filter((e) => e.endsWith('.md') && !e.startsWith('_'));
+  const mdFiles = entries.filter((e) => e.endsWith('.md'));
   if (mdFiles.length >= MAX_FILES) {
     throw new Error(`Max ${MAX_FILES} memories allowed`);
   }
 }
 
 export async function checkSymlink(filepath: string): Promise<void> {
-  const { resolve } = await import('node:path');
-  const real = await stat(filepath);
+  const real = await lstat(filepath);
   if (real.isSymbolicLink()) {
     throw new Error(`Symlinks not allowed: ${filepath}`);
   }
