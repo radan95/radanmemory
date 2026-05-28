@@ -22,6 +22,11 @@ import { searchTasksTool } from './search-tasks.js';
 import { getTaskTool } from './get-task.js';
 import { updateTaskTool } from './update-task.js';
 import { deleteTaskTool } from './delete-task.js';
+import { createAgentTool } from './create-agent.js';
+import { listAgentsTool } from './list-agents.js';
+import { getAgentTool } from './get-agent.js';
+import { updateAgentTool } from './update-agent.js';
+import { deleteAgentTool } from './delete-agent.js';
 
 export function registerAllTools(store: MemoryStore, memoryDir: string): ToolDefinition[] {
   const tools: ToolDefinition[] = [
@@ -52,6 +57,11 @@ export function registerAllTools(store: MemoryStore, memoryDir: string): ToolDef
       getTaskTool(proxy),
       updateTaskTool(proxy, cache),
       deleteTaskTool(proxy, cache),
+      createAgentTool(proxy, cache),
+      listAgentsTool(proxy, cache),
+      getAgentTool(proxy),
+      updateAgentTool(proxy, cache),
+      deleteAgentTool(proxy, cache),
     );
   }
 
