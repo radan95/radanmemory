@@ -1,5 +1,7 @@
 import type { ToolDefinition } from './types.js';
 import type { MemoryStore } from '../memory-store.js';
+import { RadanMindProxy } from '../radanmind-proxy.js';
+import { CloudCache } from '../cloud-cache.js';
 import { createMemoryTool } from './create-memory.js';
 import { readMemoryTool } from './read-memory.js';
 import { updateMemoryTool } from './update-memory.js';
@@ -9,9 +11,14 @@ import { searchMemoriesTool } from './search-memories.js';
 import { findBacklinksTool } from './find-backlinks.js';
 import { suggestConnectionsTool } from './suggest-connections.js';
 import { syncMemoriesTool } from './sync-memories.js';
+import { createProjectTool } from './create-project.js';
+import { listProjectsTool } from './list-projects.js';
+import { searchProjectsTool } from './search-projects.js';
+import { updateProjectTool } from './update-project.js';
+import { deleteProjectTool } from './delete-project.js';
 
 export function registerAllTools(store: MemoryStore, memoryDir: string): ToolDefinition[] {
-  return [
+  const tools: ToolDefinition[] = [
     createMemoryTool(store),
     readMemoryTool(store, memoryDir),
     updateMemoryTool(store),
@@ -22,4 +29,19 @@ export function registerAllTools(store: MemoryStore, memoryDir: string): ToolDef
     suggestConnectionsTool(store, memoryDir),
     syncMemoriesTool(store),
   ];
+
+  const apiKey = process.env.RADANMIND_API_KEY;
+  if (apiKey) {
+    const proxy = new RadanMindProxy({ apiKey });
+    const cache = new CloudCache(memoryDir);
+    tools.push(
+      createProjectTool(proxy, cache),
+      listProjectsTool(proxy, cache),
+      searchProjectsTool(proxy),
+      updateProjectTool(proxy, cache),
+      deleteProjectTool(proxy, cache),
+    );
+  }
+
+  return tools;
 }
