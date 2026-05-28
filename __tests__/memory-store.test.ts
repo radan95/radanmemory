@@ -63,18 +63,20 @@ describe('MemoryStore', () => {
   });
 
   it('computes checksum of file content', async () => {
-    const store = new MemoryStore(memDir);
     await store.create('checksum-test', 'Hello checksum', ['tag']);
     const checksum = await store.checksum('checksum-test');
     expect(checksum).toMatch(/^sha256:[a-f0-9]{64}$/);
   });
 
   it('checksum changes when content changes', async () => {
-    const store = new MemoryStore(memDir);
     await store.create('checksum-test2', 'Original', []);
     const before = await store.checksum('checksum-test2');
     await store.update('checksum-test2', { content: 'Modified' });
     const after = await store.checksum('checksum-test2');
     expect(before).not.toBe(after);
+  });
+
+  it('throws on non-existent memory', async () => {
+    await expect(store.checksum('nonexistent')).rejects.toThrow('not found');
   });
 });

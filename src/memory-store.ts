@@ -167,8 +167,18 @@ export class MemoryStore {
   }
 
   async checksum(title: string): Promise<string> {
-    const fp = this.filePath(sanitizeTitle(title));
+    const cleanTitle = sanitizeTitle(title);
+    const fp = this.filePath(cleanTitle);
+
+    try {
+      await access(fp);
+    } catch {
+      throw new Error(`Memory "${cleanTitle}" not found`);
+    }
+
     await checkSymlink(fp);
+    await assertFileSize(fp);
+
     const raw = await readFile(fp, 'utf-8');
     return computeChecksum(raw);
   }
