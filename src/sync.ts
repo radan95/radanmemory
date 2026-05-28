@@ -14,6 +14,13 @@ function contentChecksum(content: string): string {
   return createHash('sha256').update(content, 'utf-8').digest('hex');
 }
 
+interface JsonRpcResponse {
+  jsonrpc: string;
+  result?: { accepted?: number };
+  error?: { code: number; message: string };
+  id: number;
+}
+
 export class SyncClient {
   constructor(private apiKey?: string) {
     this.apiKey = apiKey ?? getApiKey();
@@ -26,14 +33,19 @@ export class SyncClient {
     };
 
     for (const meta of list) {
-      const mem = await store.read(meta.title);
-      payload.memories.push({
-        title: mem.title,
-        content: mem.content,
-        tags: mem.tags,
-        checksum: contentChecksum(mem.content),
-        updated: mem.updated,
-      });
+      try {
+        const mem = await store.read(meta.title);
+        payload.memories.push({
+          title: mem.title,
+          content: mem.content,
+          tags: mem.tags,
+          checksum: contentChecksum(mem.content),
+          updated: mem.updated,
+        });
+      } catch {
+        // Skip files that were deleted between list and read
+        continue;
+      }
     }
 
     const response = await fetch(SYNC_API, {
@@ -54,7 +66,13 @@ export class SyncClient {
       throw new Error(`Sync push failed: ${response.status} ${response.statusText}`);
     }
 
-    return { pushed: payload.memories.length, pulled: 0, conflicts: [] };
+    const data = (await response.json()) as JsonRpcResponse;
+    if (data.error) {
+      throw new Error(`Sync push failed: ${data.error.code} ${data.error.message}`);
+    }
+
+    const accepted = data.result?.accepted ?? payload.memories.length;
+    return { pushed: accepted, pulled: 0, conflicts: [] };
   }
 
   async pull(store: MemoryStore): Promise<SyncResult> {
@@ -76,7 +94,11 @@ export class SyncClient {
       throw new Error(`Sync pull failed: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as JsonRpcResponse;
+    if (data.error) {
+      throw new Error(`Sync pull failed: ${data.error.code} ${data.error.message}`);
+    }
+
     const cloudMemories = data.result?.items ?? [];
     let pulled = 0;
     const conflicts: string[] = [];
@@ -84,8 +106,12 @@ export class SyncClient {
     for (const cm of cloudMemories) {
       const exists = await store.exists(cm.title);
       if (!exists) {
-        await store.create(cm.title, cm.content, cm.tags);
-        pulled++;
+        try {
+          await store.create(cm.title, cm.content, cm.tags);
+          pulled++;
+        } catch (err) {
+          conflicts.push(cm.title);
+        }
       }
     }
 
@@ -93,8 +119,28 @@ export class SyncClient {
   }
 
   async syncBoth(store: MemoryStore): Promise<SyncResult> {
-    const pushResult = await this.push(store);
-    const pullResult = await this.pull(store);
+    let pushResult: SyncResult = { pushed: 0, pulled: 0, conflicts: [] };
+    let pullResult: SyncResult = { pushed: 0, pulled: 0, conflicts: [] };
+
+    try {
+      pushResult = await this.push(store);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Push failed: ${message}`);
+    }
+
+    try {
+      pullResult = await this.pull(store);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // Return combined results with pull error noted in conflicts
+      return {
+        pushed: pushResult.pushed,
+        pulled: 0,
+        conflicts: [...pushResult.conflicts, ...pullResult.conflicts, `pull-error: ${message}`],
+      };
+    }
+
     return {
       pushed: pushResult.pushed,
       pulled: pullResult.pulled,

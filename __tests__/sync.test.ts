@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { SyncClient } from '../src/sync.js';
 
 describe('SyncClient', () => {
@@ -10,5 +10,48 @@ describe('SyncClient', () => {
   it('accepts explicit API key', () => {
     const client = new SyncClient('test-key');
     expect(client).toBeInstanceOf(SyncClient);
+  });
+
+  it('handles JSON-RPC error response', async () => {
+    const client = new SyncClient('test-key');
+    const mockStore = {
+      list: vi.fn().mockResolvedValue([]),
+    } as unknown as import('../src/memory-store.js').MemoryStore;
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        jsonrpc: '2.0',
+        error: { code: -32600, message: 'Invalid Request' },
+        id: 1,
+      }),
+    });
+
+    await expect(client.push(mockStore)).rejects.toThrow('Invalid Request');
+  });
+
+  it('parses accepted count from response', async () => {
+    const client = new SyncClient('test-key');
+    const mockStore = {
+      list: vi.fn().mockResolvedValue([{ title: 'test' }]),
+      read: vi.fn().mockResolvedValue({
+        title: 'test',
+        content: 'content',
+        tags: [],
+        updated: new Date().toISOString(),
+      }),
+    } as unknown as import('../src/memory-store.js').MemoryStore;
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        jsonrpc: '2.0',
+        result: { accepted: 1 },
+        id: 1,
+      }),
+    });
+
+    const result = await client.push(mockStore);
+    expect(result.pushed).toBe(1);
   });
 });
