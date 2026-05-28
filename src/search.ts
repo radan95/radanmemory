@@ -8,14 +8,18 @@ export interface SearchResult {
 }
 
 export async function searchMemories(dir: string, query: string): Promise<SearchResult[]> {
-  const files = await readdir(dir);
-  const mdFiles = files.filter((f) => f.endsWith('.md') && !f.startsWith('_'));
+  if (!query || query.trim().length === 0) {
+    throw new Error('Query cannot be empty');
+  }
+
+  const files = await readdir(dir, { withFileTypes: true });
+  const mdFiles = files.filter((f) => f.isFile() && f.name.endsWith('.md') && !f.name.startsWith('_'));
   const lowerQuery = query.toLowerCase();
   const results: SearchResult[] = [];
 
   for (const file of mdFiles) {
-    const title = file.replace('.md', '');
-    const fp = join(dir, file);
+    const title = file.name.replace('.md', '');
+    const fp = join(dir, file.name);
     const content = await readFile(fp, 'utf-8');
 
     // Skip frontmatter for search

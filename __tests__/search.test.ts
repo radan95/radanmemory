@@ -49,4 +49,15 @@ describe('search', () => {
     const results = await searchMemories(memDir, 'supabase');
     expect(results).toHaveLength(1);
   });
+
+  it('skips frontmatter in search', async () => {
+    await writeFile(join(memDir, 'auth.md'), '---\ntitle: auth\ntags: [supabase]\n---\nWe use Auth.js for authentication.');
+    const results = await searchMemories(memDir, 'supabase');
+    expect(results).toHaveLength(0);
+  });
+
+  it('throws on empty query', async () => {
+    await expect(searchMemories(memDir, '')).rejects.toThrow('Query cannot be empty');
+    await expect(searchMemories(memDir, '   ')).rejects.toThrow('Query cannot be empty');
+  });
 });
