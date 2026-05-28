@@ -29,6 +29,7 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "main": "./vercel-entry.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/index.ts",
