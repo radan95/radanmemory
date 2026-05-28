@@ -21,7 +21,7 @@ export class MemoryStore {
     return tags.map((t) => t.replace(/[\n\r\[\],]/g, '').trim()).filter(Boolean);
   }
 
-  async create(title: string, content: string, tags: string[] = []): Promise<Memory> {
+  async create(title: string, content: string, tags: string[] = [], author?: string): Promise<Memory> {
     const cleanTitle = sanitizeTitle(title);
     const fp = this.filePath(cleanTitle);
 
@@ -38,7 +38,9 @@ export class MemoryStore {
 
     const safeTags = this.sanitizeTags(tags);
     const now = new Date().toISOString();
-    const frontmatter = `---\ntitle: ${cleanTitle}\ntags: [${safeTags.join(', ')}]\ncreated: ${now}\nupdated: ${now}\n---\n\n`;
+    let frontmatter = `---\ntitle: ${cleanTitle}\ntags: [${safeTags.join(', ')}]\ncreated: ${now}\nupdated: ${now}\n`;
+    if (author) frontmatter += `author: ${author}\n`;
+    frontmatter += `---\n\n`;
     await writeFile(fp, frontmatter + content, 'utf-8');
 
     return this.read(cleanTitle);
@@ -73,19 +75,22 @@ export class MemoryStore {
     };
   }
 
-  async update(title: string, updates: { content?: string; tags?: string[] }): Promise<Memory> {
+  async update(title: string, updates: { content?: string; tags?: string[]; author?: string }): Promise<Memory> {
     const cleanTitle = sanitizeTitle(title);
     const existing = await this.read(cleanTitle);
 
     const content = updates.content ?? existing.content;
     const tags = updates.tags ?? existing.tags;
+    const author = updates.author ?? existing.author;
     const now = new Date().toISOString();
 
     assertContentSize(content);
 
     const safeTags = this.sanitizeTags(tags);
     const fp = this.filePath(cleanTitle);
-    const frontmatter = `---\ntitle: ${cleanTitle}\ntags: [${safeTags.join(', ')}]\ncreated: ${existing.created}\nupdated: ${now}\n---\n\n`;
+    let frontmatter = `---\ntitle: ${cleanTitle}\ntags: [${safeTags.join(', ')}]\ncreated: ${existing.created}\nupdated: ${now}\n`;
+    if (author) frontmatter += `author: ${author}\n`;
+    frontmatter += `---\n\n`;
     await writeFile(fp, frontmatter + content, 'utf-8');
 
     return this.read(cleanTitle);
@@ -212,6 +217,9 @@ export class MemoryStore {
               break;
             case 'updated':
               metadata.updated = val;
+              break;
+            case 'author':
+              metadata.author = val;
               break;
           }
         }

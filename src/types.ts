@@ -6,6 +6,7 @@ export interface MemoryMetadata {
   size: number;
   created: string;
   updated: string;
+  author?: string;
 }
 
 export interface Memory extends MemoryMetadata {

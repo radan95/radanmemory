@@ -2,7 +2,8 @@
 
 import { Command } from 'commander';
 import { discoverOrCreateMemoryDir, ensureIndexFile } from './discover.js';
-import { startServer } from './server.js';
+import { startStdioServer } from './server.js';
+import { startHttpServer } from './transports/http.js';
 import { MemoryStore } from './memory-store.js';
 import { SyncClient } from './sync.js';
 
@@ -15,10 +16,17 @@ program
 
 program
   .command('server', { isDefault: true })
-  .description('Start MCP stdio server')
-  .action(async () => {
+  .description('Start MCP server')
+  .option('--http', 'Start HTTP server for multi-agent mode')
+  .option('--port <port>', 'HTTP port', '3000')
+  .option('--host <host>', 'HTTP host', '127.0.0.1')
+  .action(async (opts: { http?: boolean; port: string; host: string }) => {
     try {
-      await startServer();
+      if (opts.http) {
+        await startHttpServer({ port: parseInt(opts.port, 10), host: opts.host });
+      } else {
+        await startStdioServer();
+      }
     } catch (err) {
       console.error('radanmemory: fatal error starting server', err);
       process.exit(1);

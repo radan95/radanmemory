@@ -39,7 +39,7 @@ import { acquireLockTool } from './acquire-lock.js';
 import { releaseLockTool } from './release-lock.js';
 import { getActivityFeedTool } from './get-activity-feed.js';
 
-export function registerAllTools(store: MemoryStore, memoryDir: string, options?: { orchestrator?: boolean }): ToolDefinition[] {
+export function registerAllTools(store: MemoryStore, memoryDir: string, options?: { orchestrator?: boolean; locks?: LockManager; tasks?: TaskQueue; events?: EventBus }): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     createMemoryTool(store),
     readMemoryTool(store, memoryDir),
@@ -77,9 +77,9 @@ export function registerAllTools(store: MemoryStore, memoryDir: string, options?
   }
 
   if (options?.orchestrator) {
-    const locks = new LockManager(memoryDir);
-    const tasks = new TaskQueue(memoryDir);
-    const events = new EventBus(memoryDir);
+    const locks = options?.locks ?? new LockManager(memoryDir);
+    const tasks = options?.tasks ?? new TaskQueue(memoryDir);
+    const events = options?.events ?? new EventBus(memoryDir);
 
     tools.push(
       createTaskTool(tasks),

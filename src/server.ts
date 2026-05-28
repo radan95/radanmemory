@@ -9,12 +9,15 @@ import { discoverOrCreateMemoryDir, ensureIndexFile } from './discover.js';
 import { registerAllTools } from './tools/index.js';
 import type { ToolDefinition } from './tools/types.js';
 
-export async function startServer(): Promise<void> {
-  const memoryDir = await discoverOrCreateMemoryDir();
-  await ensureIndexFile(memoryDir);
-  const store = new MemoryStore(memoryDir);
+export interface ServerContext {
+  store: MemoryStore;
+  memoryDir: string;
+  orchestrator?: boolean;
+}
 
-  const tools: ToolDefinition[] = registerAllTools(store, memoryDir);
+export function createMcpServer(context: ServerContext): { server: Server; tools: ToolDefinition[] } {
+  const { store, memoryDir, orchestrator } = context;
+  const tools: ToolDefinition[] = registerAllTools(store, memoryDir, { orchestrator: orchestrator ?? false });
 
   const server = new Server(
     { name: 'radanmemory', version: '1.0.0' },
@@ -44,6 +47,19 @@ export async function startServer(): Promise<void> {
     }
   });
 
+  return { server, tools };
+}
+
+export async function startStdioServer(): Promise<void> {
+  const memoryDir = await discoverOrCreateMemoryDir();
+  await ensureIndexFile(memoryDir);
+  const store = new MemoryStore(memoryDir);
+  const { server } = createMcpServer({ store, memoryDir, orchestrator: false });
   const transport = new StdioServerTransport();
   await server.connect(transport);
+}
+
+// Backward compatibility alias
+export async function startServer(): Promise<void> {
+  return startStdioServer();
 }

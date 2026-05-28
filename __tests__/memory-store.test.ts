@@ -79,4 +79,23 @@ describe('MemoryStore', () => {
   it('throws on non-existent memory', async () => {
     await expect(store.checksum('nonexistent')).rejects.toThrow('not found');
   });
+
+  it('presists author in frontmatter', async () => {
+    const mem = await store.create('author-test', 'Content', [], 'Alice');
+    expect(mem.author).toBe('Alice');
+    const readBack = await store.read('author-test');
+    expect(readBack.author).toBe('Alice');
+  });
+
+  it('preserves author on update', async () => {
+    await store.create('author-update', 'Content', [], 'Alice');
+    const updated = await store.update('author-update', { content: 'New content' });
+    expect(updated.author).toBe('Alice');
+  });
+
+  it('allows updating author', async () => {
+    await store.create('author-update2', 'Content', [], 'Alice');
+    const updated = await store.update('author-update2', { author: 'Bob' });
+    expect(updated.author).toBe('Bob');
+  });
 });

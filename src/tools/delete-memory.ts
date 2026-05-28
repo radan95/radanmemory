@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ToolDefinition } from './types.js';
 import type { MemoryStore } from '../memory-store.js';
+import { getOrchestratorContext } from '../orchestrator-context.js';
 
 export const deleteMemoryTool = (store: MemoryStore): ToolDefinition => ({
   name: 'delete_memory',
@@ -15,6 +16,16 @@ export const deleteMemoryTool = (store: MemoryStore): ToolDefinition => ({
   handler: async (params: Record<string, unknown>) => {
     const { title } = z.object({ title: z.string().min(1) }).parse(params);
     await store.delete(title);
+
+    const ctx = getOrchestratorContext();
+    if (ctx) {
+      await ctx.events.publish({
+        type: 'memory:deleted',
+        payload: { title },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     return { content: [{ type: 'text', text: JSON.stringify({ success: true }) }] };
   },
 });

@@ -7,6 +7,10 @@ import { MemoryStore } from '../memory-store.js';
 import { discoverOrCreateMemoryDir, ensureIndexFile } from '../discover.js';
 import { registerAllTools } from '../tools/index.js';
 import type { ToolDefinition } from '../tools/types.js';
+import { LockManager } from '../locks.js';
+import { TaskQueue } from '../tasks.js';
+import { EventBus } from '../events.js';
+import { setOrchestratorContext } from '../orchestrator-context.js';
 
 export interface HttpServerOptions {
   memoryDir?: string;
@@ -33,7 +37,12 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
     const sessionId = transport.sessionId;
     transports.set(sessionId, transport);
 
-    const tools: ToolDefinition[] = registerAllTools(store, memoryDir, { orchestrator: true });
+    const locks = new LockManager(memoryDir);
+    const tasks = new TaskQueue(memoryDir);
+    const events = new EventBus(memoryDir);
+    setOrchestratorContext({ locks, tasks, events });
+
+    const tools: ToolDefinition[] = registerAllTools(store, memoryDir, { orchestrator: true, locks, tasks, events });
 
     const mcp = new McpServer(
       { name: 'radanmemory', version: '1.0.0' },
