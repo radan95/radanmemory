@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import { discoverOrCreateMemoryDir, ensureIndexFile } from './discover.js';
+import { startServer } from './server.js';
+import { MemoryStore } from './memory-store.js';
+import { SyncClient } from './sync.js';
 
 const program = new Command();
 
@@ -10,24 +14,45 @@ program
   .version('1.0.0');
 
 program
+  .command('server', { isDefault: true })
+  .description('Start MCP stdio server')
+  .action(async () => {
+    try {
+      await startServer();
+    } catch (err) {
+      console.error('radanmemory: fatal error starting server', err);
+      process.exit(1);
+    }
+  });
+
+program
   .command('init')
-  .description('Initialize .radanmemory/ folder in current directory')
-  .action(() => {
-    console.log('radanmemory: init not yet implemented');
+  .description('Initialize .radanmemory/ folder')
+  .action(async () => {
+    const dir = await discoverOrCreateMemoryDir();
+    await ensureIndexFile(dir);
+    console.log(`radanmemory: initialized ${dir}`);
   });
 
 program
   .command('sync')
   .description('Sync memories with RadanMind cloud')
-  .action(() => {
-    console.log('radanmemory: sync not yet implemented');
-  });
-
-program
-  .command('server', { isDefault: true })
-  .description('Start MCP stdio server')
-  .action(() => {
-    console.log('radanmemory: server not yet implemented');
+  .option('-d, --direction <dir>', 'push, pull, or both', 'both')
+  .action(async (opts: { direction: string }) => {
+    try {
+      const memoryDir = await discoverOrCreateMemoryDir();
+      const store = new MemoryStore(memoryDir);
+      const client = new SyncClient();
+      const result = opts.direction === 'push'
+        ? await client.push(store)
+        : opts.direction === 'pull'
+          ? await client.pull(store)
+          : await client.syncBoth(store);
+      console.log(`radanmemory: sync complete — pushed ${result.pushed}, pulled ${result.pulled}, conflicts ${result.conflicts.length}`);
+    } catch (err) {
+      console.error('radanmemory: sync failed', err);
+      process.exit(1);
+    }
   });
 
 program.parse();

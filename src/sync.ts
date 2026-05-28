@@ -16,7 +16,7 @@ function contentChecksum(content: string): string {
 
 interface JsonRpcResponse {
   jsonrpc: string;
-  result?: { accepted?: number };
+  result?: { accepted?: number; items?: Array<{ title: string; content: string; tags: string[] }> };
   error?: { code: number; message: string };
   id: number;
 }
