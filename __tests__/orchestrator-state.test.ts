@@ -41,4 +41,25 @@ describe('OrchestratorState', () => {
     const events = await state.loadEvents(10);
     expect(events).toHaveLength(2);
   });
+
+  it('returns empty defaults when files do not exist', async () => {
+    const freshDir = mkdtempSync(join(tmpdir(), 'orch-fresh-'));
+    const freshState = new OrchestratorState(freshDir);
+
+    await expect(freshState.loadLocks()).resolves.toEqual({});
+    await expect(freshState.loadTasks()).resolves.toEqual([]);
+    await expect(freshState.loadEvents(10)).resolves.toEqual([]);
+    await expect(freshState.loadAgents()).resolves.toEqual({});
+
+    rmSync(freshDir, { recursive: true, force: true });
+  });
+
+  it('saves and loads agents', async () => {
+    await state.saveAgents({
+      'agent-1': { name: 'Claude', connectedAt: '2024-01-01', lastSeen: '2024-01-01' },
+    });
+    const agents = await state.loadAgents();
+    expect(agents['agent-1']).toBeDefined();
+    expect(agents['agent-1'].name).toBe('Claude');
+  });
 });

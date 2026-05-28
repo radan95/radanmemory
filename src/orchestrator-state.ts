@@ -72,7 +72,14 @@ export class OrchestratorState {
 
   async appendEvent(event: EventEntry) {
     const line = JSON.stringify(event) + '\n';
-    await writeFile(join(this.orchDir, 'events.jsonl'), line, { flag: 'a', encoding: 'utf-8' });
+    const dest = join(this.orchDir, 'events.jsonl');
+    let existing = '';
+    try {
+      existing = await readFile(dest, 'utf-8');
+    } catch {
+      // File doesn't exist yet, start with empty string
+    }
+    await this.atomicWrite('events.jsonl', existing + line);
   }
 
   async loadEvents(limit: number): Promise<EventEntry[]> {
