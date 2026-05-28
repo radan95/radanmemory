@@ -117,8 +117,20 @@ export class SyncClient {
       throw new Error(`Sync pull failed: ${data.error.code} ${data.error.message}`);
     }
 
-    const responseData = data.result as { total?: number; items?: Array<{ title: string; content?: string; tags?: string[] }> } | undefined;
-    const cloudMemories = responseData?.items ?? [];
+    let cloudMemories: Array<{ title: string; content?: string; tags?: string[] }> = [];
+    try {
+      if (data.result && typeof data.result === 'object' && 'content' in data.result) {
+        const contentArr = (data.result as any).content as Array<{ type: string; text: string }>;
+        if (contentArr?.[0]?.text) {
+          const parsed = JSON.parse(contentArr[0].text);
+          cloudMemories = parsed.items ?? [];
+        }
+      } else if (data.result && typeof data.result === 'object' && 'items' in data.result) {
+        cloudMemories = (data.result as any).items ?? [];
+      }
+    } catch {
+      cloudMemories = [];
+    }
     let pulled = 0;
     const conflicts: string[] = [];
 

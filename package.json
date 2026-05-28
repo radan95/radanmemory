@@ -7,6 +7,26 @@
     "radanmemory": "./dist/index.js"
   },
   "files": ["dist"],
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "knowledge-graph",
+    "ai",
+    "markdown",
+    "wikilinks",
+    "local-first",
+    "memory",
+    "radanmind"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/radan95/radanmemory.git"
+  },
+  "author": "RadanMedia <hello@radanmedia.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/index.ts",
