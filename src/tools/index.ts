@@ -16,6 +16,12 @@ import { listProjectsTool } from './list-projects.js';
 import { searchProjectsTool } from './search-projects.js';
 import { updateProjectTool } from './update-project.js';
 import { deleteProjectTool } from './delete-project.js';
+import { createTaskTool } from './create-task.js';
+import { listTasksTool } from './list-tasks.js';
+import { searchTasksTool } from './search-tasks.js';
+import { getTaskTool } from './get-task.js';
+import { updateTaskTool } from './update-task.js';
+import { deleteTaskTool } from './delete-task.js';
 
 export function registerAllTools(store: MemoryStore, memoryDir: string): ToolDefinition[] {
   const tools: ToolDefinition[] = [
@@ -40,6 +46,12 @@ export function registerAllTools(store: MemoryStore, memoryDir: string): ToolDef
       searchProjectsTool(proxy),
       updateProjectTool(proxy, cache),
       deleteProjectTool(proxy, cache),
+      createTaskTool(proxy, cache),
+      listTasksTool(proxy, cache),
+      searchTasksTool(proxy),
+      getTaskTool(proxy),
+      updateTaskTool(proxy, cache),
+      deleteTaskTool(proxy, cache),
     );
   }
 
