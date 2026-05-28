@@ -12,14 +12,16 @@ export interface Memory extends MemoryMetadata {
   content: string;
 }
 
+export interface SyncMemory {
+  title: string;
+  content: string;
+  tags: string[];
+  checksum: string;
+  updated: string;
+}
+
 export interface SyncPayload {
-  memories: Array<{
-    title: string;
-    content: string;
-    tags: string[];
-    checksum: string;
-    updated: string;
-  }>;
+  memories: SyncMemory[];
 }
 
 export interface SyncResult {
