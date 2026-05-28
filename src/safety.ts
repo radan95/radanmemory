@@ -8,7 +8,7 @@ const MAX_FILES = 10_000;
 export function sanitizeTitle(title: string): string {
   const clean = title.replace(/\.md$/i, '').trim();
   if (!VALID_TITLE_RE.test(clean)) {
-    throw new Error(`Invalid title: "${title}" — only [a-z0-9-_] allowed`);
+    throw new Error(`Invalid title: "${title}" — only [a-zA-Z0-9-_] allowed`);
   }
   return clean;
 }

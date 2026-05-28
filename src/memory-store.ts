@@ -1,6 +1,5 @@
-import { readFile, writeFile, readdir, mkdir, rename, lstat } from 'node:fs/promises';
+import { readFile, writeFile, readdir, mkdir, rename, lstat, access } from 'node:fs/promises';
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { sanitizeTitle, toFilename, assertContentSize, assertFileSize, assertFileCount, checkSymlink } from './safety.js';
 import { extractLinks } from './wikilink-parser.js';
@@ -28,8 +27,12 @@ export class MemoryStore {
     assertContentSize(content);
     await assertFileCount(this.dir);
 
-    if (existsSync(fp)) {
+    try {
+      await access(fp);
       throw new Error(`Memory "${cleanTitle}" already exists`);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('already exists')) throw err;
+      // ENOENT is expected — file doesn't exist, proceed
     }
 
     const safeTags = this.sanitizeTags(tags);
@@ -44,7 +47,9 @@ export class MemoryStore {
     const cleanTitle = sanitizeTitle(title);
     const fp = this.filePath(cleanTitle);
 
-    if (!existsSync(fp)) {
+    try {
+      await access(fp);
+    } catch {
       throw new Error(`Memory "${cleanTitle}" not found`);
     }
 
@@ -89,35 +94,40 @@ export class MemoryStore {
     const cleanTitle = sanitizeTitle(title);
     const fp = this.filePath(cleanTitle);
 
-    if (!existsSync(fp)) {
+    try {
+      await access(fp);
+    } catch {
       throw new Error(`Memory "${cleanTitle}" not found`);
     }
 
     const delDir = this.deletedDir();
-    if (!existsSync(delDir)) {
+    try {
+      await access(delDir);
+    } catch {
       await mkdir(delDir, { recursive: true });
     }
 
     let dest = join(delDir, toFilename(cleanTitle));
-    if (existsSync(dest)) {
+    try {
+      await access(dest);
       const timestamp = Date.now();
       dest = join(delDir, `${cleanTitle}-${timestamp}.md`);
+    } catch {
+      // dest doesn't exist, proceed
     }
     await checkSymlink(fp);
     await rename(fp, dest);
   }
 
   async list(tag?: string, limit?: number): Promise<MemoryMetadata[]> {
-    const files = await readdir(this.dir);
-    const mdFiles = files.filter((f) => f.endsWith('.md') && !f.startsWith('_'));
+    const entries = await readdir(this.dir, { withFileTypes: true });
+    const mdFiles = entries.filter((f) => f.isFile() && f.name.endsWith('.md') && !f.name.startsWith('_'));
 
     const result: MemoryMetadata[] = [];
 
     for (const file of mdFiles) {
-      const title = file.replace('.md', '');
-      const fp = join(this.dir, file);
-
-      if (!existsSync(fp)) continue;
+      const title = file.name.replace('.md', '');
+      const fp = join(this.dir, file.name);
 
       try {
         await checkSymlink(fp);
@@ -147,7 +157,12 @@ export class MemoryStore {
   }
 
   async exists(title: string): Promise<boolean> {
-    return existsSync(this.filePath(sanitizeTitle(title)));
+    try {
+      await access(this.filePath(sanitizeTitle(title)));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async checksum(title: string): Promise<string> {

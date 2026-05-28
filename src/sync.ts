@@ -3,11 +3,18 @@ import type { SyncPayload, SyncResult } from './types.js';
 import { MemoryStore } from './memory-store.js';
 
 const SYNC_API = 'https://radanmind.vercel.app/api/mcp';
+const SYNC_TIMEOUT_MS = 30_000;
 
 function getApiKey(): string {
   const key = process.env.RADANMIND_API_KEY;
   if (!key) throw new Error('RADANMIND_API_KEY environment variable not set');
   return key;
+}
+
+function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
 }
 
 function contentChecksum(content: string): string {
@@ -48,7 +55,7 @@ export class SyncClient {
       }
     }
 
-    const response = await fetch(SYNC_API, {
+    const response = await fetchWithTimeout(SYNC_API, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,7 +83,7 @@ export class SyncClient {
   }
 
   async pull(store: MemoryStore): Promise<SyncResult> {
-    const response = await fetch(SYNC_API, {
+    const response = await fetchWithTimeout(SYNC_API, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -126,19 +133,14 @@ export class SyncClient {
       pushResult = await this.push(store);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Push failed: ${message}`);
+      pushResult.conflicts.push(`push-error: ${message}`);
     }
 
     try {
       pullResult = await this.pull(store);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      // Return combined results with pull error noted in conflicts
-      return {
-        pushed: pushResult.pushed,
-        pulled: 0,
-        conflicts: [...pushResult.conflicts, ...pullResult.conflicts, `pull-error: ${message}`],
-      };
+      pullResult.conflicts.push(`pull-error: ${message}`);
     }
 
     return {

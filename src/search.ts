@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { checkSymlink, assertFileSize } from './safety.js';
 
 export interface SearchResult {
   title: string;
@@ -20,6 +21,14 @@ export async function searchMemories(dir: string, query: string): Promise<Search
   for (const file of mdFiles) {
     const title = file.name.replace('.md', '');
     const fp = join(dir, file.name);
+
+    try {
+      await checkSymlink(fp);
+      await assertFileSize(fp);
+    } catch {
+      continue;
+    }
+
     const content = await readFile(fp, 'utf-8');
 
     // Skip frontmatter for search

@@ -54,4 +54,28 @@ describe('SyncClient', () => {
     const result = await client.push(mockStore);
     expect(result.pushed).toBe(1);
   });
+
+  it('syncBoth returns conflicts instead of throwing on push failure', async () => {
+    const client = new SyncClient('test-key');
+    const mockStore = {
+      list: vi.fn().mockRejectedValue(new Error('Store locked')),
+    } as unknown as import('../src/memory-store.js').MemoryStore;
+
+    const result = await client.syncBoth(mockStore);
+    expect(result.pushed).toBe(0);
+    expect(result.conflicts.some((c) => c.includes('push-error'))).toBe(true);
+  });
+
+  it('syncBoth returns conflicts instead of throwing on pull failure', async () => {
+    const client = new SyncClient('test-key');
+    const mockStore = {
+      list: vi.fn().mockResolvedValue([]),
+    } as unknown as import('../src/memory-store.js').MemoryStore;
+
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+    const result = await client.syncBoth(mockStore);
+    expect(result.pulled).toBe(0);
+    expect(result.conflicts.some((c) => c.includes('pull-error'))).toBe(true);
+  });
 });

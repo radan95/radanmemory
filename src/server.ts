@@ -37,8 +37,10 @@ export async function startServer(): Promise<void> {
     try {
       return await tool.handler(request.params.arguments ?? {});
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Tool error: ${message}`);
+      const error = err instanceof Error ? err : new Error(String(err));
+      const wrapped = new Error(`Tool error: ${error.message}`);
+      (wrapped as Error & { cause?: Error }).cause = error;
+      throw wrapped;
     }
   });
 

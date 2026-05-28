@@ -1,6 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { extractLinks } from './wikilink-parser.js';
+import { checkSymlink, assertFileSize } from './safety.js';
 import type { Memory } from './types.js';
 
 export interface ConnectionSuggestion {
@@ -10,14 +11,32 @@ export interface ConnectionSuggestion {
 }
 
 export async function suggestConnections(memoryDir: string, target: Memory): Promise<ConnectionSuggestion[]> {
-  const files = await readdir(memoryDir);
-  const mdFiles = files.filter((f) => f.endsWith('.md') && !f.startsWith('_') && f.replace('.md', '') !== target.title);
+  const entries = await readdir(memoryDir, { withFileTypes: true });
+  const mdFiles = entries
+    .filter((f) => f.isFile() && f.name.endsWith('.md') && !f.name.startsWith('_') && f.name.replace('.md', '') !== target.title)
+    .map((f) => f.name);
   const suggestions: ConnectionSuggestion[] = [];
 
   for (const file of mdFiles) {
     const title = file.replace('.md', '');
     const fp = join(memoryDir, file);
-    const raw = await readFile(fp, 'utf-8');
+
+    try {
+      await checkSymlink(fp);
+      await assertFileSize(fp);
+    } catch {
+      continue;
+    }
+
+    let raw: string;
+    try {
+      raw = await readFile(fp, 'utf-8');
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('ENOENT')) {
+        continue;
+      }
+      throw err;
+    }
     const body = raw.replace(/^---[\s\S]*?---\n?/, '');
     const links = extractLinks(body);
 

@@ -1,5 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { checkSymlink, assertFileSize } from './safety.js';
 
 const WIKILINK_REGEX = /\[\[([^\]]+)\]\]/g;
 
@@ -29,16 +30,28 @@ export type BacklinkIndex = Record<string, string[]>;
 
 export async function buildBacklinkIndex(memoryDir: string): Promise<BacklinkIndex> {
   const index: Record<string, Set<string>> = {};
-  const files = (await readdir(memoryDir)).filter((f) => f.endsWith('.md'));
+  const entries = await readdir(memoryDir, { withFileTypes: true });
+  const files = entries.filter((f) => f.isFile() && f.name.endsWith('.md')).map((f) => f.name);
 
   const contents = await Promise.all(
-    files.map(async (file) => ({
-      file,
-      content: await readFile(join(memoryDir, file), 'utf-8'),
-    }))
+    files.map(async (file) => {
+      const fp = join(memoryDir, file);
+      try {
+        await checkSymlink(fp);
+        await assertFileSize(fp);
+      } catch {
+        return null;
+      }
+      return {
+        file,
+        content: await readFile(fp, 'utf-8'),
+      };
+    })
   );
 
-  for (const { file, content } of contents) {
+  for (const item of contents) {
+    if (!item) continue;
+    const { file, content } = item;
     const fromTitle = file.replace('.md', '');
     const linkedTo = extractLinks(content);
 
