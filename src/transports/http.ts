@@ -6,7 +6,6 @@ import type { Server } from 'node:http';
 import { MemoryStore } from '../memory-store.js';
 import { discoverOrCreateMemoryDir, ensureIndexFile } from '../discover.js';
 import { registerAllTools } from '../tools/index.js';
-import { SessionManager } from '../session.js';
 import type { ToolDefinition } from '../tools/types.js';
 
 export interface HttpServerOptions {
@@ -25,7 +24,6 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
   const app = express();
   app.use(express.json());
 
-  const sessions = new SessionManager();
   const transports = new Map<string, SSEServerTransport>();
 
   app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
@@ -33,7 +31,6 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
   app.get('/sse', async (_req, res) => {
     const transport = new SSEServerTransport('/messages', res);
     const sessionId = transport.sessionId;
-    sessions.register(sessionId, 'agent');
     transports.set(sessionId, transport);
 
     const tools: ToolDefinition[] = registerAllTools(store, memoryDir, { orchestrator: true });
@@ -59,7 +56,6 @@ export async function startHttpServer(options: HttpServerOptions = {}): Promise<
     });
 
     transport.onclose = () => {
-      sessions.remove(sessionId);
       transports.delete(sessionId);
     };
 

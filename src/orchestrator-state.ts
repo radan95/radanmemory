@@ -20,6 +20,7 @@ export interface TaskEntry {
   claimedAt?: string;
   completedAt?: string;
   failedReason?: string;
+  tags?: string[];
 }
 
 export interface EventEntry {
