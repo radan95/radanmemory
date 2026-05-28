@@ -28,24 +28,31 @@ export function extractLinksWithContext(content: string): Array<{ target: string
 export type BacklinkIndex = Record<string, string[]>;
 
 export async function buildBacklinkIndex(memoryDir: string): Promise<BacklinkIndex> {
-  const index: BacklinkIndex = {};
-  const files = await readdir(memoryDir);
+  const index: Record<string, Set<string>> = {};
+  const files = (await readdir(memoryDir)).filter((f) => f.endsWith('.md'));
 
-  for (const file of files) {
-    if (!file.endsWith('.md')) continue;
-    const content = await readFile(join(memoryDir, file), 'utf-8');
+  const contents = await Promise.all(
+    files.map(async (file) => ({
+      file,
+      content: await readFile(join(memoryDir, file), 'utf-8'),
+    }))
+  );
+
+  for (const { file, content } of contents) {
     const fromTitle = file.replace('.md', '');
     const linkedTo = extractLinks(content);
 
     for (const target of linkedTo) {
-      if (!index[target]) index[target] = [];
-      if (!index[target].includes(fromTitle)) {
-        index[target].push(fromTitle);
-      }
+      if (!index[target]) index[target] = new Set();
+      index[target].add(fromTitle);
     }
   }
 
-  return index;
+  const result: BacklinkIndex = {};
+  for (const [target, sources] of Object.entries(index)) {
+    result[target] = Array.from(sources);
+  }
+  return result;
 }
 
 export function countLinks(content: string): number {
