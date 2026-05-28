@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { sanitizeTitle, toFilename, assertContentSize, assertFileSize, assertFileCount, checkSymlink } from './safety.js';
 import { extractLinks } from './wikilink-parser.js';
+import { computeChecksum } from './checksum.js';
 import type { Memory, MemoryMetadata } from './types.js';
 
 export class MemoryStore {
@@ -169,7 +170,7 @@ export class MemoryStore {
     const fp = this.filePath(sanitizeTitle(title));
     await checkSymlink(fp);
     const raw = await readFile(fp, 'utf-8');
-    return createHash('sha256').update(raw).digest('hex');
+    return computeChecksum(raw);
   }
 
   private parseFile(raw: string, title: string): { metadata: Omit<MemoryMetadata, 'title' | 'links' | 'backlinks' | 'size'>; content: string } {
